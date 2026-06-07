@@ -95,7 +95,8 @@ def callback(call):
             bot.answer_callback_query(call.id, "بيانات ناقصة، أعد كتابة الإعلان", True)
     
     elif call.data == "restart":
-        del user_data[uid]
+        if uid in user_data:
+            del user_data[uid]
         bot.edit_message_text("🔄 أعد كتابة البيانات من البداية", 
                               call.message.chat.id, call.message.message_id)
     
@@ -127,5 +128,8 @@ def get_details(m):
     else:
         bot.reply_to(m, "❌ صيغة خاطئة. استخدم:\nرابط القناة: ...\nالمدة: ...\nالميزانية: ...\nمحتوى الإعلان: ...")
 
-print("✅ بوت التمويل الإعلاني يعمل!")
-bot.infinity_polling()
+# ============= هذا السطر الجديد مهم جداً =============
+# يسمح لملف app.py باستيراد البوت وتشغيله في الخلفية
+if __name__ == "__main__":
+    print("✅ بوت التمويل الإعلاني يعمل!")
+    bot.infinity_polling()
