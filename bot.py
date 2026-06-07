@@ -1,174 +1,131 @@
-import os
 import telebot
-from openai import OpenAI
-from dotenv import load_dotenv
-import logging
-import base64
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import sqlite3
+from datetime import datetime
+import re
+import os
 
-# تحميل المتغيرات من ملف .env
-load_dotenv()
+# ============= الإعدادات =============
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_ID"))
 
-# إعداد التسجيل للأخطاء
-logging.basicConfig(level=logging.INFO)
+bot = telebot.TeleBot(TOKEN)
 
-# تهيئة البوت
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# ============= قاعدة البيانات =============
+conn = sqlite3.connect('advertising_bot.db', check_same_thread=False)
+c = conn.cursor()
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-client = OpenAI(api_key=OPENAI_API_KEY)
+c.execute('''CREATE TABLE IF NOT EXISTS ad_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    username TEXT,
+    channel_type TEXT,
+    channel_link TEXT,
+    duration_days INTEGER,
+    budget_stars INTEGER,
+    ad_content TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMP
+)''')
+conn.commit()
 
-# قاموس لحفظ تاريخ المحادثات لكل مستخدم
-user_conversations = {}
+# ============= شروط الاستخدام =============
+TERMS_SHORT = """
+📜 *شروط الاستخدام – ملخص*
 
-def get_conversation_history(user_id, max_messages=10):
-    """الحصول على تاريخ المحادثة للمستخدم"""
-    if user_id not in user_conversations:
-        user_conversations[user_id] = []
-    return user_conversations[user_id][-max_messages:]
+✅ مسموح: محتوى عام، تعليمي، ترفيهي، منتجات حقيقية
+⛔ ممنوع: إباحي، هاك، حسابات مخترقة، سياسي
+"""
 
-def save_conversation(user_id, role, content):
-    """حفظ رسالة في تاريخ المحادثة"""
-    if user_id not in user_conversations:
-        user_conversations[user_id] = []
-    user_conversations[user_id].append({"role": role, "content": content})
-    
-    if len(user_conversations[user_id]) > 50:
-        user_conversations[user_id] = user_conversations[user_id][-50:]
+def terms_keyboard():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("✅ أوافق", callback_data="accept"))
+    return markup
 
-def clear_conversation(user_id):
-    """مسح تاريخ المحادثة للمستخدم"""
-    if user_id in user_conversations:
-        user_conversations[user_id] = []
-    return True
+def channel_keyboard():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🟢 محتوى", callback_data="type_content"))
+    markup.add(InlineKeyboardButton("🛒 بيع", callback_data="type_shop"))
+    return markup
 
-# أمر /start
+def confirm_keyboard():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("✅ تأكيد", callback_data="confirm"))
+    markup.add(InlineKeyboardButton("🔙 إعادة", callback_data="restart"))
+    return markup
+
+user_data = {}
+
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    welcome_text = """
-✨ *مرحباً بك في بوت GPTAIServBot!* ✨
+def start(message):
+    user_data[message.from_user.id] = {}
+    bot.reply_to(message, f"✨ مرحباً!\n\n{TERMS_SHORT}\n\nأوافق على الشروط؟", 
+                 parse_mode='Markdown', reply_markup=terms_keyboard())
 
-يمكنني مساعدتك في:
-📝 *الرد على أسئلتك* - اسألني أي شيء
-🖼️ *تحليل الصور* - أرسل صورة وسأصفها لك
-💬 *محادثة ذكية* - سأتذكر سياق حديثك
-
-🔧 *الأوامر المتاحة:*
-/start - إظهار هذه الرسالة
-/help - المساعدة
-/clear - مسح تاريخ المحادثة
-
-🎯 *فقط أرسل لي رسالتك وسأرد عليك فوراً!*
-    """
-    bot.reply_to(message, welcome_text, parse_mode='Markdown')
-
-# أمر /help
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    help_text = """
-📚 *كيفية استخدام البوت:*
-
-*للأسئلة النصية:*
-فقط اكتب سؤالك وسأجيب عليه بأفضل صورة
-
-*للصور:*
-أرسل الصورة مع وصف (كابتشن) وسأقوم بتحليلها
-
-*للمحادثة المستمرة:*
-أتذكر سياق آخر 10 رسائل، استخدم /clear لمسح الذاكرة
-
-🔑 *نصائح:*
-- كلما كانت أسئلتك أكثر تحديداً، كانت إجاباتي أفضل
-    """
-    bot.reply_to(message, help_text, parse_mode='Markdown')
-
-# أمر /clear لمسح تاريخ المحادثة
-@bot.message_handler(commands=['clear'])
-def clear_history(message):
-    user_id = message.from_user.id
-    clear_conversation(user_id)
-    bot.reply_to(message, "🧹 تم مسح تاريخ المحادثة! يمكنك البدء من جديد.")
-
-# معالجة الرسائل النصية
-@bot.message_handler(func=lambda message: True, content_types=['text'])
-def handle_text_message(message):
-    user_id = message.from_user.id
-    user_message = message.text
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
+    uid = call.from_user.id
     
-    bot.send_chat_action(message.chat.id, 'typing')
+    if call.data == "accept":
+        bot.edit_message_text("✅ اختر نوع قناتك:", call.message.chat.id, 
+                              call.message.message_id, reply_markup=channel_keyboard())
     
-    save_conversation(user_id, "user", user_message)
-    conversation_history = get_conversation_history(user_id)
+    elif call.data in ["type_content", "type_shop"]:
+        user_data[uid]['type'] = 'content' if call.data == "type_content" else 'shop'
+        bot.edit_message_text("📝 أرسل بيانات الإعلان بهذا الشكل:\n\n"
+                              "رابط القناة: t.me/...\n"
+                              "المدة: 7\n"
+                              "الميزانية: 500\n"
+                              "محتوى الإعلان: نص الإعلان هنا",
+                              call.message.chat.id, call.message.message_id)
     
-    try:
-        messages = [
-            {"role": "system", "content": "أنت مساعد ذكي ومفيد. أجب على الأسئلة بدقة ووضوح. استخدم اللغة العربية."}
-        ]
-        messages.extend(conversation_history)
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1000
-        )
-        
-        ai_response = response.choices[0].message.content
-        save_conversation(user_id, "assistant", ai_response)
-        bot.reply_to(message, ai_response)
+    elif call.data == "confirm":
+        data = user_data.get(uid, {})
+        if all(k in data for k in ['link', 'duration', 'budget', 'content']):
+            c.execute("INSERT INTO ad_requests (user_id, username, channel_type, channel_link, duration_days, budget_stars, ad_content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                      (uid, call.from_user.username, data['type'], data['link'], data['duration'], data['budget'], data['content'], datetime.now()))
+            conn.commit()
+            rid = c.lastrowid
             
-    except Exception as e:
-        error_msg = f"❌ عذراً، حدث خطأ: {str(e)}"
-        bot.reply_to(message, error_msg)
-        logging.error(f"Error for user {user_id}: {str(e)}")
-
-# معالجة الصور
-@bot.message_handler(content_types=['photo'])
-def handle_photo(message):
-    user_id = message.from_user.id
-    prompt = message.caption or "ماذا يوجد في هذه الصورة؟ صفها بتفصيل"
+            bot.send_message(ADMIN_ID, f"📢 طلب جديد #{rid}\nمن: @{call.from_user.username}\nنوع: {data['type']}\nرابط: {data['link']}\nمدة: {data['duration']}\nميزانية: {data['budget']}")
+            bot.edit_message_text(f"✅ تم استلام طلبك رقم #{rid}\nسيتم مراجعته قريباً", 
+                                  call.message.chat.id, call.message.message_id)
+            del user_data[uid]
+        else:
+            bot.answer_callback_query(call.id, "بيانات ناقصة، أعد كتابة الإعلان", True)
     
-    bot.send_chat_action(message.chat.id, 'typing')
-    waiting_msg = bot.reply_to(message, "🖼️ جاري تحليل الصورة... لحظة من فضلك")
+    elif call.data == "restart":
+        del user_data[uid]
+        bot.edit_message_text("🔄 أعد كتابة البيانات من البداية", 
+                              call.message.chat.id, call.message.message_id)
     
-    try:
-        photo = message.photo[-1]
-        file_info = bot.get_file(photo.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        image_base64 = base64.b64encode(downloaded_file).decode('utf-8')
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=500
-        )
-        
-        ai_response = response.choices[0].message.content
-        bot.delete_message(message.chat.id, waiting_msg.message_id)
-        bot.reply_to(message, f"🖼️ *تحليل الصورة:*\n\n{ai_response}", parse_mode='Markdown')
-        
-    except Exception as e:
-        bot.edit_message_text(
-            f"❌ حدث خطأ أثناء تحليل الصورة: {str(e)}", 
-            message.chat.id, 
-            waiting_msg.message_id
-        )
+    bot.answer_callback_query(call.id)
 
-# تشغيل البوت
-if __name__ == "__main__":
-    print("🤖 البوت يعمل الآن...")
-    print(f"البوت: @GPTAIServBot")
-    bot.infinity_polling()
+@bot.message_handler(func=lambda m: True)
+def get_details(m):
+    uid = m.from_user.id
+    if uid not in user_data or 'type' not in user_data[uid]:
+        bot.reply_to(m, "⚠️ استخدم /start أولاً")
+        return
+    
+    lines = m.text.split('\n')
+    data = {}
+    for line in lines:
+        if 'رابط' in line:
+            data['link'] = line.split(':')[-1].strip()
+        elif 'المدة' in line:
+            data['duration'] = int(line.split(':')[-1].strip())
+        elif 'الميزانية' in line:
+            data['budget'] = int(line.split(':')[-1].strip())
+        elif 'محتوى' in line:
+            data['content'] = line.split(':')[-1].strip()
+    
+    if all(k in data for k in ['link', 'duration', 'budget', 'content']):
+        user_data[uid].update(data)
+        bot.reply_to(m, f"📋 ملخص:\nرابط: {data['link']}\nمدة: {data['duration']}\nميزانية: {data['budget']}\nمحتوى: {data['content']}\n\nهل البيانات صحيحة؟", 
+                     reply_markup=confirm_keyboard())
+    else:
+        bot.reply_to(m, "❌ صيغة خاطئة. استخدم:\nرابط القناة: ...\nالمدة: ...\nالميزانية: ...\nمحتوى الإعلان: ...")
+
+print("✅ بوت التمويل الإعلاني يعمل!")
+bot.infinity_polling()
