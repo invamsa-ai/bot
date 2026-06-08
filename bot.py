@@ -10,7 +10,39 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# ============= الأزرار الثابتة =============
+# ============= قائمة القنوات المطلوب الاشتراك فيها =============
+# ضع معرفات القنوات هنا (بدون @)
+REQUIRED_CHANNELS = [
+    {"id": "rawafdnajd", "name": "روافد نجد للاستقدام | Rawafid Najd", "link": "https://t.me/rawafdnajd"},
+    # {"id": "channel_username_2", "name": "اسم القناة 2", "link": "https://t.me/channel_username_2"},
+    # {"id": "channel_username_3", "name": "اسم القناة 3", "link": "https://t.me/channel_username_3"},
+]
+
+# قاموس لتخزين حالة التحقق من المستخدمين
+user_verified = {}
+
+# ============= التحقق من الاشتراك في القنوات =============
+def check_subscription(user_id):
+    """التحقق من اشتراك المستخدم في جميع القنوات المطلوبة"""
+    for channel in REQUIRED_CHANNELS:
+        try:
+            chat_member = bot.get_chat_member(f"@{channel['id']}", user_id)
+            if chat_member.status in ['left', 'kicked']:
+                return False, channel['name']
+        except:
+            return False, channel['name']
+    return True, None
+
+# ============= أزرار القنوات المطلوبة =============
+def channels_keyboard():
+    """إنشاء أزرار القنوات والتحقق"""
+    markup = InlineKeyboardMarkup(row_width=1)
+    for channel in REQUIRED_CHANNELS:
+        markup.add(InlineKeyboardButton(f"📢 {channel['name']}", url=channel['link']))
+    markup.add(InlineKeyboardButton("✅ تم التحقق", callback_data="check_subscription"))
+    return markup
+
+# ============= الأزرار الثابتة (تظهر بعد التحقق) =============
 def main_keyboard():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
     markup.add(
@@ -104,10 +136,17 @@ def process_video(url, message, platform):
         elif 'actual_file' in locals() and os.path.exists(actual_file):
             os.remove(actual_file)
 
-# ============= أوامر البوت =============
+# ============= أمر بدء البوت مع التحقق =============
 @bot.message_handler(commands=['start'])
 def start_command(message):
-    welcome_text = """
+    user_id = message.from_user.id
+    
+    # التحقق من الاشتراك
+    is_subscribed, missing_channel = check_subscription(user_id)
+    
+    if is_subscribed:
+        user_verified[user_id] = True
+        welcome_text = """
 بوت تحميل الفيديوهات الشامل
 
 مرحباً بك في البوت الأسرع لتحميل فيديوهات التواصل الاجتماعي
@@ -128,10 +167,57 @@ def start_command(message):
 
 مجاني بالكامل - تحميل فوري - بدون علامات مائية
 """
-    bot.reply_to(message, welcome_text, reply_markup=main_keyboard())
+        bot.reply_to(message, welcome_text, reply_markup=main_keyboard())
+    else:
+        user_verified[user_id] = False
+        channels_text = "للمتابعة، يرجى الاشتراك في القنوات التالية:\n\n"
+        for channel in REQUIRED_CHANNELS:
+            channels_text += f"• {channel['name']}\n"
+        channels_text += "\nبعد الاشتراك، اضغط على زر تم التحقق"
+        
+        bot.reply_to(message, channels_text, reply_markup=channels_keyboard())
 
+# ============= معالجة الضغط على زر التحقق =============
+@bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
+def check_subscription_callback(call):
+    user_id = call.from_user.id
+    
+    is_subscribed, missing_channel = check_subscription(user_id)
+    
+    if is_subscribed:
+        user_verified[user_id] = True
+        bot.edit_message_text(
+            "تم التحقق بنجاح! يمكنك الآن استخدام البوت.\nأرسل /start للبدء",
+            call.message.chat.id,
+            call.message.message_id
+        )
+    else:
+        bot.answer_callback_query(
+            call.id,
+            f"عذراً، لم تشترك في قناة {missing_channel} بعد. يرجى الاشتراك ثم حاول مرة أخرى",
+            show_alert=True
+        )
+
+# ============= التحقق قبل استخدام الأوامر =============
+def is_user_allowed(user_id):
+    """التحقق من أن المستخدم أكمل الاشتراك في القنوات"""
+    if user_id not in user_verified or not user_verified[user_id]:
+        # محاولة التحقق مرة أخرى
+        is_subscribed, _ = check_subscription(user_id)
+        if is_subscribed:
+            user_verified[user_id] = True
+            return True
+        return False
+    return True
+
+# ============= أوامر البوت =============
 @bot.message_handler(commands=['help'])
 def help_command(message):
+    user_id = message.from_user.id
+    if not is_user_allowed(user_id):
+        start_command(message)
+        return
+    
     help_text = """
 دليل الاستخدام السريع
 
@@ -158,11 +244,16 @@ def help_command(message):
 
 @bot.message_handler(commands=['about'])
 def about_command(message):
+    user_id = message.from_user.id
+    if not is_user_allowed(user_id):
+        start_command(message)
+        return
+    
     about_text = """
 معلومات عن البوت
 
 الاسم: VidSaverNoLogoBot
-الإصدار: 5.0
+الإصدار: 6.0
 التقنية: yt-dlp + Python
 
 المنصات المدعومة: 5 منصات
@@ -183,6 +274,11 @@ def about_command(message):
 # ============= التعامل مع الأزرار =============
 @bot.message_handler(func=lambda message: message.text in ["تيك توك", "انستغرام", "فيسبوك", "تويتر/X", "لايكي"])
 def platform_selection(message):
+    user_id = message.from_user.id
+    if not is_user_allowed(user_id):
+        start_command(message)
+        return
+    
     platform_map = {
         "تيك توك": "تيك توك",
         "انستغرام": "انستغرام",
@@ -216,14 +312,20 @@ def about_button(message):
 # ============= معالجة الروابط =============
 @bot.message_handler(func=lambda message: True)
 def handle_links(message):
-    text = message.text.strip()
+    user_id = message.from_user.id
     
     # تجاهل الأوامر والأزرار
+    text = message.text.strip()
     if text.startswith('/'):
         return
     
     buttons = ["تيك توك", "انستغرام", "فيسبوك", "تويتر/X", "لايكي", "المساعدة", "عن البوت"]
     if text in buttons:
+        return
+    
+    # التحقق من الاشتراك قبل معالجة الرابط
+    if not is_user_allowed(user_id):
+        start_command(message)
         return
     
     platform = detect_platform(text)
@@ -243,7 +345,6 @@ def handle_links(message):
         )
         return
     
-    # رسالة انتظار
     waiting_msg = bot.reply_to(
         message,
         f"جاري تحميل الفيديو...\n\n"
@@ -262,12 +363,13 @@ def handle_links(message):
 # ============= تشغيل البوت =============
 if __name__ == "__main__":
     print("""
-    بوت تحميل الفيديوهات V5.0
+    بوت تحميل الفيديوهات V6.0
     5 منصات - تحميل بدون علامة مائية
     تيك توك - انستغرام - فيسبوك - تويتر - لايكي
+    نظام الاشتراك الإجباري في القنوات مفعل
     """)
     print(f"البوت: @{bot.get_me().username}")
     print("جاهز لاستقبال الروابط")
-    print("المنصات المدعومة: تيك توك، انستغرام، فيسبوك، تويتر، لايكي\n")
+    print(f"عدد القنوات المطلوبة: {len(REQUIRED_CHANNELS)}\n")
     
     bot.infinity_polling(timeout=80)
