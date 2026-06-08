@@ -2,8 +2,7 @@ import telebot
 import re
 import requests
 import os
-import time
-import random
+import json
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 # ============= الإعدادات =============
@@ -14,8 +13,14 @@ bot = telebot.TeleBot(TOKEN)
 def main_keyboard():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
     markup.add(
-        KeyboardButton("🎵 تحميل تيك توك"),
-        KeyboardButton("📷 تحميل انستغرام"),
+        KeyboardButton("🎵 تيك توك"),
+        KeyboardButton("📷 انستغرام"),
+        KeyboardButton("📘 فيسبوك"),
+        KeyboardButton("🎥 يوتيوب"),
+        KeyboardButton("🐦 تويتر/X"),
+        KeyboardButton("💬 ريديت"),
+        KeyboardButton("📱 حالات واتساب"),
+        KeyboardButton("🎬 لايكي"),
         KeyboardButton("❓ المساعدة"),
         KeyboardButton("ℹ️ عن البوت")
     )
@@ -46,21 +51,16 @@ def download_tiktok_alternative(url):
     except:
         return None
 
-# ============= دوال تحميل انستغرام (محسنة) =============
-def download_instagram_v1(url):
-    """الطريقة الأولى: استخدام snapinsta"""
+# ============= دوال تحميل انستغرام =============
+def download_instagram(url):
     try:
         if '?' in url:
             url = url.split('?')[0]
         
+        # الطريقة الأولى
         api_url = "https://snapinsta.app/api/ajaxSearch"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
+        headers = {'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/x-www-form-urlencoded'}
         data = {'q': url}
-        
         response = requests.post(api_url, headers=headers, data=data, timeout=15)
         result = response.json()
         
@@ -68,175 +68,229 @@ def download_instagram_v1(url):
             for media in result['medias']:
                 if media.get('type') == 'video':
                     return media['url']
+        
+        # الطريقة الثانية
+        api_url2 = "https://instasave.io/api/ajaxSearch"
+        response2 = requests.post(api_url2, headers=headers, data=data, timeout=15)
+        result2 = response2.json()
+        if result2.get('success') and result2.get('links'):
+            return result2['links']['video']
+        
         return None
     except:
         return None
 
-def download_instagram_v2(url):
-    """الطريقة الثانية: استخدام instasave"""
+# ============= دوال تحميل فيسبوك =============
+def download_facebook(url):
     try:
-        if '?' in url:
-            url = url.split('?')[0]
-            
-        api_url = "https://instasave.io/api/ajaxSearch"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        api_url = f"https://fdownloader.net/api/ajaxSearch"
+        headers = {'User-Agent': 'Mozilla/5.0', 'Content-Type': 'application/x-www-form-urlencoded'}
         data = {'q': url}
-        
         response = requests.post(api_url, headers=headers, data=data, timeout=15)
         result = response.json()
         
         if result.get('success') and result.get('links'):
-            if 'video' in result['links']:
-                return result['links']['video']
+            return result['links']['sd']
         return None
     except:
         return None
 
-def download_instagram_v3(url):
-    """الطريقة الثالثة: استخدام saveinsta"""
+def download_facebook_alternative(url):
     try:
-        if '?' in url:
-            url = url.split('?')[0]
-            
-        api_url = "https://saveinsta.app/api/ajaxSearch"
-        headers = {
-            'User-Agent': 'Mozilla/5.0',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        data = {'q': url}
-        
-        response = requests.post(api_url, headers=headers, data=data, timeout=15)
-        result = response.json()
-        
-        if result.get('success') and result.get('medias'):
-            for media in result['medias']:
-                if media.get('type') == 'video' and media.get('url'):
-                    return media['url']
+        api_url = f"https://getvid.pw/api/download?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_url'):
+            return data['video_url']
         return None
     except:
         return None
 
-def download_instagram_v4(url):
-    """الطريقة الرابعة: api بديلة"""
+# ============= دوال تحميل يوتيوب =============
+def download_youtube(url):
     try:
-        # تنظيف الرابط
-        if '/reel/' in url:
-            url = url.split('?')[0]
-        
-        api_url = "https://instagram-downloader-download-instagram-videos-stories.p.rapidapi.com/index"
-        # هذه الخدمة تتطلب مفتاح API - قد لا تعمل بدون تسجيل
-        # نتركها كخيار احتياطي فقط
+        api_url = f"https://youtube-downloader9.p.rapidapi.com/?url={url}"
+        # هذه الخدمة تتطلب مفتاح API - نستخدم خدمة بديلة
+        return download_youtube_alternative(url)
+    except:
+        return download_youtube_alternative(url)
+
+def download_youtube_alternative(url):
+    try:
+        api_url = f"https://ytdlapi.com/api/download?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_url'):
+            return data['video_url']
         return None
     except:
         return None
 
-def download_instagram(url):
-    """محاولة جميع الطرق لتحميل فيديو انستغرام"""
-    methods = [
-        download_instagram_v1,
-        download_instagram_v2,
-        download_instagram_v3
-    ]
-    
-    for i, method in enumerate(methods, 1):
-        try:
-            print(f"محاولة تحميل انستغرام - الطريقة {i}...")
-            video_url = method(url)
-            if video_url:
-                print(f"نجحت الطريقة {i}!")
-                return video_url
-        except Exception as e:
-            print(f"الطريقة {i} فشلت: {e}")
-            continue
-    
-    return None
+# ============= دوال تحميل تويتر/X =============
+def download_twitter(url):
+    try:
+        api_url = f"https://twitsave.com/api/get?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_link'):
+            return data['video_link']
+        return None
+    except:
+        return None
 
-# ============= دوال تحميل عامة =============
+def download_twitter_alternative(url):
+    try:
+        api_url = f"https://twitterdl.p.rapidapi.com/api/download?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_url'):
+            return data['video_url']
+        return None
+    except:
+        return None
+
+# ============= دوال تحميل ريديت =============
+def download_reddit(url):
+    try:
+        api_url = f"https://redditsave.com/api/get?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_url'):
+            return data['video_url']
+        return None
+    except:
+        return None
+
+# ============= دوال تحميل لايكي =============
+def download_likee(url):
+    try:
+        api_url = f"https://likee.ga/api/get?url={url}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
+        if data.get('success') and data.get('video_url'):
+            return data['video_url']
+        return None
+    except:
+        return None
+
+# ============= دوال تحميل حالات واتساب =============
+def download_whatsapp_status(url):
+    """WhatsApp Status - يحتاج إلى معالجة خاصة"""
+    try:
+        # حالات الواتساب تتطلب رابط مباشر من التطبيق
+        if 'wa.me' in url or 'whatsapp.com' in url:
+            return url
+        return None
+    except:
+        return None
+
+# ============= كشف نوع المنصة =============
 def detect_platform(url):
-    url = url.lower()
-    if 'tiktok.com' in url:
-        return 'tiktok'
-    elif 'instagram.com' in url or 'instagr.am' in url:
-        return 'instagram'
+    url_lower = url.lower()
+    
+    platforms = {
+        'tiktok': ['tiktok.com', 'vm.tiktok.com'],
+        'instagram': ['instagram.com', 'instagr.am'],
+        'facebook': ['facebook.com', 'fb.com', 'fb.watch'],
+        'youtube': ['youtube.com', 'youtu.be'],
+        'twitter': ['twitter.com', 'x.com'],
+        'reddit': ['reddit.com', 'redd.it'],
+        'likee': ['likee.com', 'like.video'],
+        'whatsapp': ['wa.me', 'whatsapp.com']
+    }
+    
+    for platform, domains in platforms.items():
+        for domain in domains:
+            if domain in url_lower:
+                return platform
+    
     return None
 
+# ============= معالجة التحميل حسب المنصة =============
 def process_video(url, message, platform):
     bot.send_chat_action(message.chat.id, 'upload_video')
     
-    if platform == 'tiktok':
-        video_url = download_tiktok(url)
-        if not video_url:
-            video_url = download_tiktok_alternative(url)
-        
-        if video_url:
-            try:
-                response = requests.get(video_url, stream=True, timeout=30)
-                if response.status_code == 200:
-                    bot.send_video(
-                        message.chat.id,
-                        response.content,
-                        caption="✅ تم التحميل من تيك توك بدون علامة مائية!",
-                        reply_to_message_id=message.message_id
-                    )
-                else:
-                    bot.reply_to(message, "❌ فشل تحميل الفيديو. حاول مرة أخرى.")
-            except Exception as e:
-                bot.reply_to(message, f"❌ حدث خطأ: {str(e)[:50]}")
-        else:
-            bot.reply_to(message, "❌ لم نتمكن من تحميل الفيديو. تأكد من الرابط وحاول مرة أخرى.")
+    download_functions = {
+        'tiktok': [download_tiktok, download_tiktok_alternative],
+        'instagram': [download_instagram],
+        'facebook': [download_facebook, download_facebook_alternative],
+        'youtube': [download_youtube, download_youtube_alternative],
+        'twitter': [download_twitter, download_twitter_alternative],
+        'reddit': [download_reddit],
+        'likee': [download_likee],
+        'whatsapp': [download_whatsapp_status]
+    }
     
-    elif platform == 'instagram':
-        bot.send_message(message.chat.id, "🔄 جاري تحميل الفيديو من انستغرام... قد يستغرق بضع ثوانٍ")
-        
-        video_url = download_instagram(url)
-        
-        if video_url:
-            try:
-                response = requests.get(video_url, stream=True, timeout=30)
-                if response.status_code == 200:
-                    bot.send_video(
-                        message.chat.id,
-                        response.content,
-                        caption="✅ تم التحميل من انستغرام بدون علامة مائية!",
-                        reply_to_message_id=message.message_id
-                    )
-                else:
-                    bot.reply_to(message, "❌ فشل تحميل الفيديو. حاول مرة أخرى.")
-            except Exception as e:
-                bot.reply_to(message, f"❌ حدث خطأ أثناء التحميل: {str(e)[:50]}")
-        else:
-            bot.reply_to(message, 
-                "❌ *لم نتمكن من تحميل الفيديو*\n\n"
-                "الأسباب المحتملة:\n"
-                "• الرابط غير صحيح\n"
-                "• الحساب خاص\n"
-                "• الفيديو غير موجود\n\n"
-                "💡 نصيحة: تأكد من أن الفيديو منشور بشكل عام",
-                parse_mode='Markdown')
+    functions = download_functions.get(platform, [])
+    video_url = None
+    
+    for func in functions:
+        try:
+            video_url = func(url)
+            if video_url:
+                break
+        except:
+            continue
+    
+    platform_names = {
+        'tiktok': 'تيك توك',
+        'instagram': 'انستغرام',
+        'facebook': 'فيسبوك',
+        'youtube': 'يوتيوب',
+        'twitter': 'تويتر/X',
+        'reddit': 'ريديت',
+        'likee': 'لايكي',
+        'whatsapp': 'واتساب'
+    }
+    
+    if video_url:
+        try:
+            response = requests.get(video_url, stream=True, timeout=30)
+            if response.status_code == 200:
+                bot.send_video(
+                    message.chat.id,
+                    response.content,
+                    caption=f"✅ تم التحميل بنجاح من {platform_names.get(platform, platform)}!\n🚫 بدون علامة مائية",
+                    reply_to_message_id=message.message_id
+                )
+            else:
+                bot.reply_to(message, f"❌ فشل تحميل الفيديو من {platform_names.get(platform, platform)}. حاول مرة أخرى.")
+        except Exception as e:
+            bot.reply_to(message, f"❌ حدث خطأ أثناء التحميل: {str(e)[:50]}")
+    else:
+        bot.reply_to(message, 
+            f"❌ *لم نتمكن من تحميل الفيديو من {platform_names.get(platform, platform)}*\n\n"
+            f"الأسباب المحتملة:\n"
+            f"• الرابط غير صحيح\n"
+            f"• المحتوى خاص أو محذوف\n"
+            f"• المنصة غير مدعومة بالكامل\n\n"
+            f"💡 حاول استخدام رابط آخر أو تواصل مع المطور",
+            parse_mode='Markdown')
 
 # ============= أوامر البوت =============
 @bot.message_handler(commands=['start'])
 def start_command(message):
     welcome_text = """
-🎬 *مرحباً بك في بوت تحميل الفيديوهات!* 🎬
+🌐 *مرحباً بك في البوت الشامل لتحميل فيديوهات التواصل الاجتماعي!* 🌐
 
-✨ *يمكنك استخدام الأزرار أدناه أو إرسال الرابط مباشرة*
+🎬 *المنصات المدعومة:*
 
-📥 *المنصات المدعومة:*
-• 📱 تيك توك (TikTok)
-• 📷 انستغرام (Instagram)
+📱 • تيك توك (TikTok)
+📷 • انستغرام (Instagram)
+📘 • فيسبوك (Facebook)
+🎥 • يوتيوب (YouTube)
+🐦 • تويتر / X (Twitter)
+💬 • ريديت (Reddit)
+🎵 • لايكي (Likee)
+💚 • حالات واتساب (WhatsApp Status)
 
-⚡ *مميزات البوت:*
-✅ تحميل بدون علامة مائية
-✅ جودة عالية HD
-✅ سرعة فائقة
-✅ مجاني بالكامل
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ *كيفية الاستخدام:*
+1️⃣ اختر المنصة من الأزرار أدناه
+2️⃣ أرسل رابط الفيديو
+3️⃣ استلم الفيديو بدون علامة مائية
 
-━━━━━━━━━━━━━━━━━━━━━━━━━
-🔹 *فقط أرسل الرابط وسأقوم بالباقي!*
+✨ *مجاني بالكامل - بدون علامات مائية - جودة عالية*
 """
     bot.reply_to(message, welcome_text, parse_mode='Markdown', reply_markup=main_keyboard())
 
@@ -245,21 +299,25 @@ def help_command(message):
     help_text = """
 📖 *طريقة استخدام البوت:*
 
-🔹 *الطريقة الأولى (الأزرار):*
-• اضغط على زر "🎵 تحميل تيك توك" أو "📷 تحميل انستغرام"
-• ثم أرسل الرابط
+1️⃣ اضغط على زر المنصة التي تريد التحميل منها
+2️⃣ أرسل رابط الفيديو
+3️⃣ انتظر لحظات وسأرسل لك الفيديو
 
-🔹 *الطريقة الثانية (مباشر):*
-• فقط ألصق رابط الفيديو وأرسله
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 *أمثلة الروابط المدعومة:*
 
-━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 *أمثلة الروابط:*
 • تيك توك: `https://www.tiktok.com/@user/video/123456789`
 • انستغرام: `https://www.instagram.com/p/CxYZ123/`
+• فيسبوك: `https://www.facebook.com/watch/?v=123456789`
+• يوتيوب: `https://youtu.be/abcdefghijk`
+• تويتر: `https://x.com/user/status/123456789`
+• ريديت: `https://www.reddit.com/r/subreddit/comments/abc123/`
+• لايكي: `https://likee.com/video/123456789`
 
-⚠️ *ملاحظة:* 
-• البوت لا يدعم الـ Stories حالياً
-• الحسابات الخاصة غير مدعومة
+⚠️ *ملاحظات مهمة:*
+• البوت لا يدعم الحسابات الخاصة
+• بعض المنصات قد تحتاج إلى وقت أطول للتحميل
+• جميع الفيديوهات بدون علامة مائية
 """
     bot.reply_to(message, help_text, parse_mode='Markdown', reply_markup=main_keyboard())
 
@@ -269,35 +327,52 @@ def about_command(message):
 ℹ️ *معلومات عن البوت:*
 
 🤖 *الاسم:* VidSaverNoLogoBot
-📅 *الإصدار:* 2.1
+📅 *الإصدار:* 3.0 - الشامل
+🌍 *المنصات المدعومة:* 8 منصات
 💡 *المميزات:*
 • تحميل بدون علامة مائية
-• دعم تيك توك وانستغرام
+• دعم متعدد المنصات
 • سرعة عالية
 • مجاني بالكامل
 
 👨‍💻 *المطور:* @invamsa
 🔒 *الخصوصية:* لا نحتفظ بأي فيديوهات
+
+📢 *للاقتراحات والتواصل:* @invamsa
 """
     bot.reply_to(message, about_text, parse_mode='Markdown', reply_markup=main_keyboard())
 
 # ============= التعامل مع الأزرار =============
-@bot.message_handler(func=lambda message: message.text == "🎵 تحميل تيك توك")
-def tiktok_button(message):
+@bot.message_handler(func=lambda message: message.text in ["🎵 تيك توك", "📷 انستغرام", "📘 فيسبوك", "🎥 يوتيوب", "🐦 تويتر/X", "💬 ريديت", "🎬 لايكي", "📱 حالات واتساب"])
+def platform_selection(message):
+    platform_map = {
+        "🎵 تيك توك": "تيك توك",
+        "📷 انستغرام": "انستغرام",
+        "📘 فيسبوك": "فيسبوك",
+        "🎥 يوتيوب": "يوتيوب",
+        "🐦 تويتر/X": "تويتر",
+        "💬 ريديت": "ريديت",
+        "🎬 لايكي": "لايكي",
+        "📱 حالات واتساب": "واتساب"
+    }
+    
+    platform = platform_map.get(message.text, "")
+    
+    examples = {
+        "تيك توك": "https://www.tiktok.com/@user/video/123456789",
+        "انستغرام": "https://www.instagram.com/p/CxYZ123/",
+        "فيسبوك": "https://www.facebook.com/watch/?v=123456789",
+        "يوتيوب": "https://youtu.be/abcdefghijk",
+        "تويتر": "https://x.com/user/status/123456789",
+        "ريديت": "https://www.reddit.com/r/subreddit/comments/abc123/",
+        "لايكي": "https://likee.com/video/123456789",
+        "واتساب": "رابط الحالة من تطبيق واتساب"
+    }
+    
     bot.reply_to(message, 
-        "🎵 *تم اختيار تيك توك* ✅\n\n"
-        "📌 *أرسل رابط الفيديو الآن:*\n"
-        "مثال: `https://www.tiktok.com/@user/video/123456789`",
-        parse_mode='Markdown',
-        reply_markup=main_keyboard())
-
-@bot.message_handler(func=lambda message: message.text == "📷 تحميل انستغرام")
-def instagram_button(message):
-    bot.reply_to(message, 
-        "📷 *تم اختيار انستغرام* ✅\n\n"
-        "📌 *أرسل رابط الفيديو الآن:*\n"
-        "مثال: `https://www.instagram.com/p/CxYZ123/`\n\n"
-        "⚠️ ملاحظة: الحساب يجب أن يكون عاماً",
+        f"✅ *تم اختيار {platform}* ✅\n\n"
+        f"📌 *أرسل رابط الفيديو الآن:*\n"
+        f"مثال: `{examples.get(platform, 'الرابط')}`",
         parse_mode='Markdown',
         reply_markup=main_keyboard())
 
@@ -317,7 +392,9 @@ def handle_links(message):
     # تجاهل الأوامر والأزرار
     if text.startswith('/'):
         return
-    if text in ["🎵 تحميل تيك توك", "📷 تحميل انستغرام", "❓ المساعدة", "ℹ️ عن البوت"]:
+    
+    buttons = ["🎵 تيك توك", "📷 انستغرام", "📘 فيسبوك", "🎥 يوتيوب", "🐦 تويتر/X", "💬 ريديت", "🎬 لايكي", "📱 حالات واتساب", "❓ المساعدة", "ℹ️ عن البوت"]
+    if text in buttons:
         return
     
     platform = detect_platform(text)
@@ -326,10 +403,15 @@ def handle_links(message):
         bot.reply_to(
             message,
             "❌ *رابط غير مدعوم!*\n\n"
-            "الرجاء إرسال رابط من:\n"
-            "• تيك توك (tiktok.com)\n"
-            "• انستغرام (instagram.com)\n\n"
-            "أو استخدم الأزرار أدناه للمساعدة 👇",
+            "المنصات المدعومة حالياً:\n"
+            "• تيك توك 📱\n"
+            "• انستغرام 📷\n"
+            "• فيسبوك 📘\n"
+            "• يوتيوب 🎥\n"
+            "• تويتر/X 🐦\n"
+            "• ريديت 💬\n"
+            "• لايكي 🎵\n\n"
+            "📢 استخدم الأزرار أدناه لاختيار المنصة أولاً 👇",
             parse_mode='Markdown',
             reply_markup=main_keyboard()
         )
@@ -337,8 +419,8 @@ def handle_links(message):
     
     waiting_msg = bot.reply_to(
         message,
-        "🔄 *جاري تحميل الفيديو...*\n"
-        "يرجى الانتظار لحظة ⏳",
+        f"🔄 *جاري تحميل الفيديو...*\n"
+        f"يرجى الانتظار لحظة ⏳",
         parse_mode='Markdown'
     )
     
@@ -352,13 +434,14 @@ def handle_links(message):
 # ============= تشغيل البوت =============
 if __name__ == "__main__":
     print("""
-    ╔══════════════════════════════════════╗
-    ║   بوت تحميل الفيديوهات V2.1 🎬      ║
-    ║   TikTok & Instagram Downloader      ║
-    ╚══════════════════════════════════════╝
+    ╔══════════════════════════════════════════╗
+    ║   بوت تحميل الفيديوهات الشامل V3.0 🎬   ║
+    ║   8 منصات - تحميل بدون علامة مائية     ║
+    ║   TikTok - IG - FB - YT - X - Reddit    ║
+    ╚══════════════════════════════════════════╝
     """)
     print(f"🤖 البوت: @{bot.get_me().username}")
     print("✅ جاهز لاستقبال الروابط!")
-    print("📱 تم تحسين تحميل انستغرام بثلاث طرق مختلفة!\n")
+    print("📱 المنصات المدعومة: 8 منصات\n")
     
     bot.infinity_polling(timeout=80)
