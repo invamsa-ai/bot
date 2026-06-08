@@ -14,14 +14,13 @@ bot = telebot.TeleBot(TOKEN)
 def main_keyboard():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=False)
     markup.add(
-        KeyboardButton("🎵 تيك توك"),
-        KeyboardButton("📷 انستغرام"),
-        KeyboardButton("📘 فيسبوك"),
-        KeyboardButton("🐦 تويتر/X"),
-        KeyboardButton("💬 ريديت"),
-        KeyboardButton("🎬 لايكي"),
-        KeyboardButton("❓ المساعدة"),
-        KeyboardButton("ℹ️ عن البوت")
+        KeyboardButton("تيك توك"),
+        KeyboardButton("انستغرام"),
+        KeyboardButton("فيسبوك"),
+        KeyboardButton("تويتر/X"),
+        KeyboardButton("لايكي"),
+        KeyboardButton("المساعدة"),
+        KeyboardButton("عن البوت")
     )
     return markup
 
@@ -52,7 +51,6 @@ def detect_platform(url):
         'instagram': ['instagram.com', 'instagr.am'],
         'facebook': ['facebook.com', 'fb.com', 'fb.watch'],
         'twitter': ['twitter.com', 'x.com'],
-        'reddit': ['reddit.com', 'redd.it'],
         'likee': ['likee.com', 'like.video']
     }
     for platform, domains in platforms.items():
@@ -70,7 +68,6 @@ def process_video(url, message, platform):
         'instagram': 'انستغرام',
         'facebook': 'فيسبوك',
         'twitter': 'تويتر/X',
-        'reddit': 'ريديت',
         'likee': 'لايكي'
     }
 
@@ -84,24 +81,22 @@ def process_video(url, message, platform):
                 bot.send_video(
                     message.chat.id,
                     video_file,
-                    caption=f"✅ *تم التحميل بنجاح* ✅\n└ 📱 منصة: {platform_names.get(platform, platform)}\n└ 🚫 بدون علامة مائية\n└ 🎬 جودة عالية",
-                    reply_to_message_id=message.message_id,
-                    parse_mode='Markdown'
+                    caption=f"تم التحميل بنجاح\nمنصة: {platform_names.get(platform, platform)}\nبدون علامة مائية\nجودة عالية",
+                    reply_to_message_id=message.message_id
                 )
         else:
-            bot.reply_to(message, f"❌ *فشل التحميل*\n└ عذراً، لم نتمكن من معالجة الفيديو من {platform_names.get(platform, platform)}.\n└ يرجى المحاولة مرة أخرى أو استخدام رابط آخر.", parse_mode='Markdown')
+            bot.reply_to(message, f"فشل التحميل\nعذراً، لم نتمكن من معالجة الفيديو من {platform_names.get(platform, platform)}.\nيرجى المحاولة مرة أخرى أو استخدام رابط آخر.")
             
     except Exception as e:
         print(f"Error logs: {str(e)}")
         bot.reply_to(message, 
-            f"❌ *فشل التحميل* ❌\n\n"
-            f"└ المنصة: {platform_names.get(platform, platform)}\n\n"
-            f"📌 *الأسباب المحتملة:*\n"
-            f"└ الرابط غير صحيح أو منتهي الصلاحية\n"
-            f"└ الفيديو محذوف أو الحساب خاص\n"
-            f"└ الفيديو طويل جداً أو بحجم كبير\n\n"
-            f"💡 *نصيحة:* حاول استخدام رابط آخر أو تأكد من أن الفيديو منشور للجميع.",
-            parse_mode='Markdown')
+            f"فشل التحميل\n\n"
+            f"المنصة: {platform_names.get(platform, platform)}\n\n"
+            f"الأسباب المحتملة:\n"
+            f"- الرابط غير صحيح أو منتهي الصلاحية\n"
+            f"- الفيديو محذوف أو الحساب خاص\n"
+            f"- الفيديو طويل جداً أو بحجم كبير\n\n"
+            f"نصيحة: حاول استخدام رابط آخر أو تأكد من أن الفيديو منشور للجميع.")
             
     finally:
         if os.path.exists(output_filename):
@@ -113,102 +108,87 @@ def process_video(url, message, platform):
 @bot.message_handler(commands=['start'])
 def start_command(message):
     welcome_text = """
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃   🌐 *بوت تحميل الفيديوهات الشامل*   ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+بوت تحميل الفيديوهات الشامل
 
-✨ *مرحباً بك في البوت الأسرع لتحميل فيديوهات التواصل الاجتماعي*
+مرحباً بك في البوت الأسرع لتحميل فيديوهات التواصل الاجتماعي
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📱 *المنصات المدعومة:*
+المنصات المدعومة:
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ 🎵 تيك توك     │  📷 انستغرام
-┃ 📘 فيسبوك      │  🐦 تويتر/X
-┃ 💬 ريديت       │  🎬 لايكي
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+- تيك توك
+- انستغرام
+- فيسبوك
+- تويتر/X
+- لايكي
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ *كيفية الاستخدام:*
+كيفية الاستخدام:
 
-1️⃣ اختر المنصة من الأزرار أدناه
-2️⃣ أرسل رابط الفيديو
-3️⃣ استلم الفيديو بجودة عالية وبدون علامة مائية
+1- اختر المنصة من الأزرار أدناه
+2- أرسل رابط الفيديو
+3- استلم الفيديو بجودة عالية وبدون علامة مائية
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💎 *مجاني بالكامل - تحميل فوري - بدون علامات مائية*
+مجاني بالكامل - تحميل فوري - بدون علامات مائية
 """
-    bot.reply_to(message, welcome_text, parse_mode='Markdown', reply_markup=main_keyboard())
+    bot.reply_to(message, welcome_text, reply_markup=main_keyboard())
 
 @bot.message_handler(commands=['help'])
 def help_command(message):
     help_text = """
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃   📖 *دليل الاستخدام السريع*       ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+دليل الاستخدام السريع
 
-🔹 *الطريقة الأولى (الأزرار):*
-   اضغط على زر المنصة المطلوبة، ثم أرسل الرابط
+الطريقة الأولى (الأزرار):
+- اضغط على زر المنصة المطلوبة، ثم أرسل الرابط
 
-🔹 *الطريقة الثانية (مباشر):*
-   فقط ألصق رابط الفيديو وأرسله، وسيتعرف البوت تلقائياً على المنصة
+الطريقة الثانية (مباشر):
+- فقط ألصق رابط الفيديو وأرسله، وسيتعرف البوت تلقائياً على المنصة
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📝 *أمثلة الروابط المدعومة:*
+أمثلة الروابط المدعومة:
 
-┌─────────────────────────────────┐
-│ تيك توك    │ @user/video/123... │
-│ انستغرام   │ /p/CxYZ123/        │
-│ فيسبوك     │ /watch?v=123...    │
-│ تويتر      │ /user/status/123...│
-│ ريديت      │ /r/subreddit/...   │
-│ لايكي      │ /video/123...      │
-└─────────────────────────────────┘
+تيك توك: https://www.tiktok.com/@user/video/123456789
+انستغرام: https://www.instagram.com/p/CxYZ123/
+فيسبوك: https://www.facebook.com/watch/?v=123456789
+تويتر: https://x.com/user/status/123456789
+لايكي: https://likee.com/video/123456789
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ *ملاحظات مهمة:*
-└ البوت لا يدعم الحسابات الخاصة
-└ الفيديو يجب أن يكون منشوراً للجميع
-└ جميع الفيديوهات بدون علامة مائية
+ملاحظات مهمة:
+- البوت لا يدعم الحسابات الخاصة
+- الفيديو يجب أن يكون منشوراً للجميع
+- جميع الفيديوهات بدون علامة مائية
 """
-    bot.reply_to(message, help_text, parse_mode='Markdown', reply_markup=main_keyboard())
+    bot.reply_to(message, help_text, reply_markup=main_keyboard())
 
 @bot.message_handler(commands=['about'])
 def about_command(message):
     about_text = """
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃   ℹ️ *معلومات عن البوت*            ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+معلومات عن البوت
 
-🤖 *الاسم:* VidSaverNoLogoBot
-📅 *الإصدار:* 4.0
-⚙️ *التقنية:* yt-dlp + Python
+الاسم: VidSaverNoLogoBot
+الإصدار: 5.0
+التقنية: yt-dlp + Python
 
-📱 *المنصات المدعومة:* 6 منصات
-💎 *المميزات:*
-└ تحميل بدون علامة مائية
-└ جودة عالية HD
-└ سرعة فائقة
-└ مجاني بالكامل
+المنصات المدعومة: 5 منصات
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👨‍💻 *المطور:* @invamsa
-🔒 *الخصوصية:* لا نحتفظ بأي فيديوهات
+المميزات:
+- تحميل بدون علامة مائية
+- جودة عالية HD
+- سرعة فائقة
+- مجاني بالكامل
 
-📢 *للاقتراحات والتواصل:* @invamsa
+المطور: @invamsa
+الخصوصية: لا نحتفظ بأي فيديوهات
+
+للاقتراحات والتواصل: @invamsa
 """
-    bot.reply_to(message, about_text, parse_mode='Markdown', reply_markup=main_keyboard())
+    bot.reply_to(message, about_text, reply_markup=main_keyboard())
 
 # ============= التعامل مع الأزرار =============
-@bot.message_handler(func=lambda message: message.text in ["🎵 تيك توك", "📷 انستغرام", "📘 فيسبوك", "🐦 تويتر/X", "💬 ريديت", "🎬 لايكي"])
+@bot.message_handler(func=lambda message: message.text in ["تيك توك", "انستغرام", "فيسبوك", "تويتر/X", "لايكي"])
 def platform_selection(message):
     platform_map = {
-        "🎵 تيك توك": "تيك توك",
-        "📷 انستغرام": "انستغرام",
-        "📘 فيسبوك": "فيسبوك",
-        "🐦 تويتر/X": "تويتر",
-        "💬 ريديت": "ريديت",
-        "🎬 لايكي": "لايكي"
+        "تيك توك": "تيك توك",
+        "انستغرام": "انستغرام",
+        "فيسبوك": "فيسبوك",
+        "تويتر/X": "تويتر",
+        "لايكي": "لايكي"
     }
     platform = platform_map.get(message.text, "")
     examples = {
@@ -216,22 +196,20 @@ def platform_selection(message):
         "انستغرام": "https://www.instagram.com/p/CxYZ123/",
         "فيسبوك": "https://www.facebook.com/watch/?v=123456789",
         "تويتر": "https://x.com/user/status/123456789",
-        "ريديت": "https://www.reddit.com/r/subreddit/comments/abc123/",
         "لايكي": "https://likee.com/video/123456789"
     }
     bot.reply_to(message, 
-        f"✅ *تم اختيار {platform}* ✅\n\n"
-        f"📌 *أرسل رابط الفيديو الآن:*\n"
-        f"└ مثال: `{examples.get(platform, 'الرابط')}`\n\n"
-        f"⚡ سأقوم بتحميله لك فوراً بجودة عالية وبدون علامة مائية!",
-        parse_mode='Markdown',
+        f"تم اختيار {platform}\n\n"
+        f"أرسل رابط الفيديو الآن:\n"
+        f"مثال: {examples.get(platform, 'الرابط')}\n\n"
+        f"سأقوم بتحميله لك فوراً بجودة عالية وبدون علامة مائية",
         reply_markup=main_keyboard())
 
-@bot.message_handler(func=lambda message: message.text == "❓ المساعدة")
+@bot.message_handler(func=lambda message: message.text == "المساعدة")
 def help_button(message):
     help_command(message)
 
-@bot.message_handler(func=lambda message: message.text == "ℹ️ عن البوت")
+@bot.message_handler(func=lambda message: message.text == "عن البوت")
 def about_button(message):
     about_command(message)
 
@@ -244,7 +222,7 @@ def handle_links(message):
     if text.startswith('/'):
         return
     
-    buttons = ["🎵 تيك توك", "📷 انستغرام", "📘 فيسبوك", "🐦 تويتر/X", "💬 ريديت", "🎬 لايكي", "❓ المساعدة", "ℹ️ عن البوت"]
+    buttons = ["تيك توك", "انستغرام", "فيسبوك", "تويتر/X", "لايكي", "المساعدة", "عن البوت"]
     if text in buttons:
         return
     
@@ -253,24 +231,25 @@ def handle_links(message):
     if not platform:
         bot.reply_to(
             message,
-            "❌ *رابط غير مدعوم* ❌\n\n"
-            "└ المنصات المدعومة حالياً:\n"
-            "└ 🎵 تيك توك | 📷 انستغرام | 📘 فيسبوك\n"
-            "└ 🐦 تويتر/X | 💬 ريديت | 🎬 لايكي\n\n"
-            "💡 *نصيحة:* استخدم الأزرار أدناه لاختيار المنصة أولاً ثم أرسل الرابط.",
-            parse_mode='Markdown',
+            "رابط غير مدعوم\n\n"
+            "المنصات المدعومة حالياً:\n"
+            "- تيك توك\n"
+            "- انستغرام\n"
+            "- فيسبوك\n"
+            "- تويتر/X\n"
+            "- لايكي\n\n"
+            "نصيحة: استخدم الأزرار أدناه لاختيار المنصة أولاً ثم أرسل الرابط",
             reply_markup=main_keyboard()
         )
         return
     
-    # رسالة انتظار احترافية
+    # رسالة انتظار
     waiting_msg = bot.reply_to(
         message,
-        f"🔄 *جاري تحميل الفيديو...* 🔄\n\n"
-        f"└ المنصة: {platform}\n"
-        f"└ يرجى الانتظار لحظة ⏳\n"
-        f"└ قد يستغرق التحميل بضع ثوانٍ حسب حجم الفيديو",
-        parse_mode='Markdown'
+        f"جاري تحميل الفيديو...\n\n"
+        f"المنصة: {platform}\n"
+        f"يرجى الانتظار لحظة\n"
+        f"قد يستغرق التحميل بضع ثوانٍ حسب حجم الفيديو"
     )
     
     process_video(text, message, platform)
@@ -283,14 +262,12 @@ def handle_links(message):
 # ============= تشغيل البوت =============
 if __name__ == "__main__":
     print("""
-    ╔══════════════════════════════════════╗
-    ║   بوت تحميل الفيديوهات V4.0 🎬      ║
-    ║   6 منصات - تحميل بدون علامة مائية  ║
-    ║   TikTok - IG - FB - X - Reddit     ║
-    ╚══════════════════════════════════════╝
+    بوت تحميل الفيديوهات V5.0
+    5 منصات - تحميل بدون علامة مائية
+    تيك توك - انستغرام - فيسبوك - تويتر - لايكي
     """)
-    print(f"🤖 البوت: @{bot.get_me().username}")
-    print("✅ جاهز لاستقبال الروابط!")
-    print("📱 المنصات المدعومة: تيك توك، انستغرام، فيسبوك، تويتر، ريديت، لايكي\n")
+    print(f"البوت: @{bot.get_me().username}")
+    print("جاهز لاستقبال الروابط")
+    print("المنصات المدعومة: تيك توك، انستغرام، فيسبوك، تويتر، لايكي\n")
     
     bot.infinity_polling(timeout=80)
